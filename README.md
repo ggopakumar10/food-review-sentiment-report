@@ -16,7 +16,7 @@ The app uses the local model in `models/distilbert_sentiment` when present. Othe
 ## Deploy on Streamlit Community Cloud
 
 - Repository entry point: `src/app.py`
-- Dependencies: `requirements.txt`
+- Dependencies: `src/requirements.txt`
 - Model: `ggopakumar/food-review-sentiment` on Hugging Face
 
 The local dataset, model folder, virtual environment, and editor settings are excluded from this repository. Do not add private data or credentials.

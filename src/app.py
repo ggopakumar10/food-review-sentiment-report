@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import shap
-from transformers import pipeline
+from transformers import AutoModelForSequenceClassification, AutoTokenizer
 import torch
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -13,19 +13,47 @@ MODEL_SOURCE = str(MODEL_PATH) if MODEL_PATH.is_dir() else MODEL_ID
 
 @st.cache_resource
 def load_model():
-    device = 0 if torch.cuda.is_available() else -1
-    pipe = pipeline("sentiment-analysis", model=MODEL_SOURCE, device=device)
-    pipe.model.config.id2label = {
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_SOURCE)
+    model = AutoModelForSequenceClassification.from_pretrained(MODEL_SOURCE)
+    model.config.id2label = {
         0: "NEGATIVE",
         1: "POSITIVE",
     }
-    pipe.model.config.label2id = {
+    model.config.label2id = {
         "NEGATIVE": 0,
         "POSITIVE": 1,
     }
-    return pipe
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.to(device)
+    model.eval()
+    return tokenizer, model, device
 
-sentiment_pipeline = load_model()
+sentiment_tokenizer, sentiment_model, model_device = load_model()
+
+
+def classify_texts(texts):
+    encoded = sentiment_tokenizer(
+        texts,
+        padding=True,
+        truncation=True,
+        return_tensors="pt",
+    )
+    encoded = {name: tensor.to(model_device) for name, tensor in encoded.items()}
+
+    with torch.inference_mode():
+        probabilities = sentiment_model(**encoded).logits.softmax(dim=-1)
+
+    probabilities = probabilities.cpu().tolist()
+    labels = sentiment_model.config.id2label
+    return [
+        {
+            "label": labels[max(range(len(row)), key=row.__getitem__)],
+            "score": max(row),
+            "probabilities": row,
+        }
+        for row in probabilities
+    ]
+
 
 def predict_proba(texts):
     if isinstance(texts, str):
@@ -38,19 +66,8 @@ def predict_proba(texts):
     if not all(isinstance(text, str) for text in texts):
         raise TypeError("Sentiment predictions require a string or a sequence of strings.")
 
-    outputs = sentiment_pipeline(texts)
-    probs = []
-
-    for out in outputs:
-        score = float(out["score"])
-        label = out["label"]
-
-        if label == "POSITIVE":
-            probs.append([1.0 - score, score])
-        else:
-            probs.append([score, 1.0 - score])
-
-    return np.asarray(probs)
+    outputs = classify_texts(texts)
+    return np.asarray([out["probabilities"] for out in outputs])
 
 st.title("Sentiment Analysis Demo (DistilBERT)")
 
@@ -71,7 +88,7 @@ if (
     and st.session_state.get("word_shap_values") is not None
 ):
     analysis_text = st.session_state.analysis_text
-    result = sentiment_pipeline(analysis_text)[0]
+    result = classify_texts([analysis_text])[0]
     predicted_label = result["label"]
     st.write(f"**Sentiment:** {predicted_label} ({result['score'] * 100:.2f}% confidence)")
 
