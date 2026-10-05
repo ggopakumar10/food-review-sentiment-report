@@ -1,0 +1,6 @@
+streamlit==1.65.0
+torch==2.14.1
+transformers==5.18.0
+shap==0.52.0
+numpy==2.5.3
+pandas==3.0.6
