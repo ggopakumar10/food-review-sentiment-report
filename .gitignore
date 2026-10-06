@@ -4,7 +4,15 @@ __pycache__/
 *.py[cod]
 .ipynb_checkpoints/
 
-/data/
-/models/
+/data/*
+!/data/combined_reviews_with_sentiment.csv
+/models/*
+!/models/distilbert_sentiment/
+/models/distilbert_sentiment/*
+!/models/distilbert_sentiment/config.json
+!/models/distilbert_sentiment/evaluation_metrics.json
+!/models/distilbert_sentiment/model.safetensors
+!/models/distilbert_sentiment/tokenizer.json
+!/models/distilbert_sentiment/tokenizer_config.json
 
 .streamlit/secrets.toml
